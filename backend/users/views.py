@@ -175,3 +175,7 @@ def ResetPassword(request, reset_id):
         return redirect('forgot-password')
 
     return render(request, 'reset_password.html')
+
+
+def ScanView(request):
+    return render(request, 'scan.html')

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block styles %}
+    <style>
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        #preview {
+            display: none;
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+{% include "nav.html" %}
+{% include "theme-toggle.html" %}
+<div id="scan" class="container"><div class="row">
+    <div class="col-md-12">
+        <h1>Scan [[ message ]]</h1>
+        <div class="form-group">
+            <label for="image">Image</label>
+            <input type="file" accept="image/*" capture="camera" class="form-control" id="image" name="image">
+        </div>
+        <div class="form-group">
+            <button v-if="!isCameraOn && !isImageSelected" class="btn btn-primary" @click="startCamera">Start Camera</button>
+            <button v-else-if="isCameraOn" class="btn btn-secondary" @click="captureImage">Capture Image</button>
+            <button v-if="isImageSelected" class="btn btn-warning" @click="restartCamera">Restart Camera</button>
+        </div>
+        <div class="form-group">
+            <video id="video" width="640" height="480" autoplay></video>
+            <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
+            <img id="preview" src="" alt="Preview" class="img-fluid">
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+    const { createApp } = Vue
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        data() {
+            return {
+                message: 'Hello Vue!',
+                video: null,
+                canvas: null,
+                context: null,
+                isCameraOn: false,
+                isImageSelected: false
+            }
+        },
+        methods: {
+            startCamera() {
+                this.video = document.getElementById('video');
+                this.canvas = document.getElementById('canvas');
+                this.context = this.canvas.getContext('2d');
+                this.isCameraOn = true;
+                this.isImageSelected = false;
+
+                this.video.style.display = 'block';
+                this.canvas.style.display = 'none';
+
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        this.video.srcObject = stream;
+                        this.video.play();
+                    })
+                    .catch(err => {
+                        console.error("Error accessing the camera: ", err);
+                    });
+            },
+            captureImage() {
+                this.context.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+                const dataURL = this.canvas.toDataURL('image/png');
+                document.getElementById('preview').src = dataURL;
+                // stop camera
+                this.video.srcObject.getVideoTracks().forEach(track => track.stop());
+                this.isCameraOn = false;
+                this.isImageSelected = true;
+                // hide video and canvas
+                this.video.style.display = 'none';
+                this.canvas.style.display = 'none';
+            },
+            restartCamera() {
+                // Clear states
+                if (this.video && this.video.srcObject) {
+                    this.video.srcObject.getVideoTracks().forEach(track => track.stop());
+                }
+                this.isCameraOn = false;
+                this.isImageSelected = false;
+                document.getElementById('preview').src = '';
+                // Restart camera
+                this.startCamera();
+            }
+        }
+    }).mount('#scan')
+</script>
+{% endblock %}
+
+
