@@ -34,3 +34,6 @@ venv.bak/
 node_modules/
 npm-debug.log
 yarn-error.log
+
+# Google Vision API key
+backend/vision/hdir-project-key.jsonbackend/vision/hdir-project-key.json
