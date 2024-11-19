@@ -37,3 +37,4 @@ yarn-error.log
 
 # Google Vision API key
 backend/vision/hdir-project-key.jsonbackend/vision/hdir-project-key.json
+backend/vision/hdir-project-key.json
