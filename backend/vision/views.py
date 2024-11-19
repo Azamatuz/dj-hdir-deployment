@@ -1,3 +1,4 @@
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.http import JsonResponse
 from google.cloud import vision
@@ -7,6 +8,7 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(BASE_DIR, 'vision', 'hdir-project-key.json')
 
+@login_required
 def ScanView(request):
     if request.method == 'POST':
         image_data = request.POST.get('image')

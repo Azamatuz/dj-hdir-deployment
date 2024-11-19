@@ -11,7 +11,7 @@ from .models import *
 
 @login_required
 def Home(request):
-    return render(request, 'home.html')
+    return render(request, 'users/home.html')
 
 def RegisterView(request):
 
@@ -42,7 +42,7 @@ def RegisterView(request):
             messages.success(request, "Account created. Login now")
             return redirect('login')
 
-    return render(request, 'register.html')
+    return render(request, 'users/register.html')
 
 def LoginView(request):
     if request.method == "POST":
@@ -75,7 +75,7 @@ def LoginView(request):
             messages.error(request, "Invalid login credentials")
             return redirect('login')
 
-    return render(request, 'login.html')
+    return render(request, 'users/login.html')
 
 def LogoutView(request):
 
@@ -116,12 +116,12 @@ def ForgotPassword(request):
             messages.error(request, f"No user with email '{email}' found")
             return redirect('forgot-password')
 
-    return render(request, 'forgot_password.html')
+    return render(request, 'users/forgot_password.html')
 
 def PasswordResetSent(request, reset_id):
 
     if PasswordReset.objects.filter(reset_id=reset_id).exists():
-        return render(request, 'password_reset_sent.html')
+        return render(request, 'users/password_reset_sent.html')
     else:
         # redirect to forgot password page if code does not exist
         messages.error(request, 'Invalid reset id')
@@ -174,4 +174,4 @@ def ResetPassword(request, reset_id):
         messages.error(request, 'Invalid reset id')
         return redirect('forgot-password')
 
-    return render(request, 'reset_password.html')
+    return render(request, 'users/reset_password.html')

@@ -1,23 +1,14 @@
-{% extends "base.html" %}
+{% extends "users/base.html" %}
 {% load static %}
 <title>{% block title %}Home{% endblock %}</title>
-{% block style %}
-    <meta name="theme-color" content="#712cf9">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <style>
-
-    </style>
-{% endblock %}
 
 {% block content %}
-{% include "users/nav.html" %}
-{% include "users/theme-toggle.html" %}
-    <main class="form-signin w-100 m-auto bg-body-tertiary d-flex align-items-center py-4">
+<div class="d-flex align-items-center py-4">
+    <main class="form-signin w-100 m-auto">
         <div class="w-100" style="max-width: 330px;">
             <h1 class="h3 mb-3 fw-normal">Welcome, {{ user.username }}!</h1>
             <p class="lead">This is your home page.</p>
         </div>
     </main>
-    <script src="{% static 'js/color-modes.js' %}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</div>
 {% endblock %}

@@ -1,48 +1,76 @@
 {% extends "users/base.html" %}
+{% load static %}
 
+{% block title %}Scan{% endblock %}
 {% block styles %}
     <style>
+        .container {
+            margin-top: 0; /* Remove any top margin */
+            padding-top: 0; /* Remove any top padding */
+        }
+        .row.align-items-start {
+            align-items: flex-start; /* Align items to the top */
+        }
         .form-group {
             margin-bottom: 1rem;
         }
-
-        #preview {
-            display: none;
-            max-width: 100%;
-            height: auto;
+        @keyframes rotate {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
         }
     </style>
 {% endblock %}
 
 {% block content %}
-{% include "users/nav.html" %}
-{% include "users/theme-toggle.html" %}
+
 <div id="scan" class="container">
-    <div class="row">
+    <div class="row mt-4">
         <div class="col-md-12">
-            <h1>Scan [[ message ]]</h1>
+            <h1>Scan</h1>
             <div class="form-group">
                 <label for="image">Image</label>
-                <input type="file" accept="image/*" capture="camera" class="form-control" id="image" name="image">
+                <input type="file" accept="image/*" class="form-control" id="image" name="image" @change="handleFileUpload">
             </div>
             <div class="form-group">
                 <button v-if="!isCameraOn && !isImageSelected" class="btn btn-primary" @click="startCamera">Start Camera</button>
                 <button v-else-if="isCameraOn" class="btn btn-secondary" @click="captureImage">Capture Image</button>
                 <button v-if="isImageSelected" class="btn btn-warning" @click="restartCamera">Restart Camera</button>
-                <button class="btn btn-success" @click="sendImage">Submit</button>
+                <button class="btn btn-success" @click="sendImage" :disabled="isLoading">
+                    Submit
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16" :class="{ rotate: isLoading }">
+                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/>
+                    </svg>
+                </button>
             </div>
-            <div class="form-group">
-                <video id="video" width="640" height="480" autoplay></video>
-                <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
-                <img id="preview" src="" alt="Preview" class="img-fluid">
+            <div id="image-div" style="position: relative; top: 0; left: 0; min-height: 500px; width: auto;">
+                <video id="video" style="display: none; max-height: 100%; width: auto;" autoplay></video>
+                <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; max-height: 100%; width: auto;"></canvas>
+                <img id="preview" src="" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; max-height: 100%; width: auto;">
             </div>
-            <div id="results"></div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <div v-if="filteredCodeList.length>0" id="results">
+                <input type="text" v-model="searchQuery" placeholder="Search code" class="form-control mb-3 w-50">
+                <div id="code-buttons">
+                    <button v-for="code in filteredCodeList" :key="code" class="btn btn-outline-primary" @click="highlightBox(code)">
+                        [[ code ]]
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block script %}
+{{ block.super }}
 <script>
     const { createApp } = Vue
 
@@ -53,13 +81,31 @@
                 message: 'Hello Vue!',
                 video: null,
                 canvas: null,
-                context: null,
+                ctx: null,
                 isCameraOn: false,
                 isImageSelected: false,
-                capturedImage: null
+                capturedImage: null,
+                response: {
+                    "product_codes": [],
+                    "boxes": [],
+                },
+                codeList: [],
+                previewImage: null,
+                imageWidth: 0,
+                imageHeight: 0,
+                searchQuery: '',
+                isLoading: false,
+            }
+        },
+        computed: {
+            filteredCodeList() {
+                return this.codeList.filter(code => code.toLowerCase().includes(this.searchQuery.toLowerCase()));
             }
         },
         methods: {
+            cleanCodeList() {
+                this.codeList = this.codeList.filter(code => /^\d{6,}$/.test(code));
+            },
             startCamera() {
                 this.video = document.getElementById('video');
                 this.canvas = document.getElementById('canvas');
@@ -92,8 +138,52 @@
                 this.video.style.display = 'none';
                 this.canvas.style.display = 'none';
             },
+            handleFileUpload(event) {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.capturedImage = e.target.result;
+                    const img = new Image();
+                    img.onload = () => {
+                        this.imageWidth = img.width;
+                        this.imageHeight = img.height;
+                        document.getElementById('preview').src = this.capturedImage;
+                        document.getElementById('preview').style.display = 'block';
+                        this.isImageSelected = true;
+                        this.setCanvasSize();
+                    };
+                    img.src = this.capturedImage;
+                };
+                reader.readAsDataURL(file);
+            },
+            setCanvasSize() {
+                const previewImage = document.getElementById('preview');
+                this.canvas = document.getElementById('canvas');
+                canvas.width = previewImage.width;
+                canvas.height = previewImage.height;
+                this.ctx = canvas.getContext('2d');
+                const imageDiv = document.getElementById('image-div');
+                imageDiv.style.height = previewImage.height;
+            },
             sendImage() {
+                // Fetch test response from response.json
+                /*fetch("{% static 'vision/response.json' %}")
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.product_codes) {
+                            this.response = data;
+                            this.codeList = [...new Set(data.product_codes.map(item => item.code))]; // Update codeList
+                            this.cleanCodeList()
+                        } else {
+                            document.getElementById('results').innerHTML = 'Error: ' + data.error;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                */
                 // Send image to server
+                this.isLoading = true;
                 fetch("{% url 'scan_image' %}", {
                     method: 'POST',
                     headers: {
@@ -106,8 +196,11 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.texts) {
-                        document.getElementById('results').innerHTML = 'Texts: ' + data.texts.join(', ');
+                    if (data.product_codes) {
+                        this.response = data;
+                        this.codeList = [...new Set(data.product_codes.map(item => item.code))]; // Update codeList
+                        this.cleanCodeList()
+                        this.isLoading = false;
                     } else {
                         document.getElementById('results').innerHTML = 'Error: ' + data.error;
                     }
@@ -116,18 +209,62 @@
                     console.error('Error:', error);
                 });
             },
+            clearCanvasPreview() {
+                this.isImageSelected = false;
+                document.getElementById('preview').src = '';
+                document.getElementById('results').innerHTML = '';
+                this.capturedImage = null;
+            },
             restartCamera() {
                 // Clear states
                 if (this.video && this.video.srcObject) {
                     this.video.srcObject.getVideoTracks().forEach(track => track.stop());
                 }
                 this.isCameraOn = false;
-                this.isImageSelected = false;
-                document.getElementById('preview').src = '';
-                document.getElementById('results').innerHTML = '';
-                this.capturedImage = null;
+                this.clearCanvasPreview();
                 // Restart camera
                 this.startCamera();
+            },
+            drawPolygons(points_list, color) {
+                this.canvas.style.display = 'block'; // Ensure canvas is visible
+                this.ctx.fillStyle = color;
+                points_list.forEach(item => {
+                    this.drawPolygon(item.bounding_poly, color);
+                });
+            },
+            drawPolygon(points, color) {
+
+                const previewImage = document.getElementById('preview');
+                const scaleX = previewImage.naturalWidth / this.canvas.width;
+                const scaleY = previewImage.naturalHeight / this.canvas.height;
+
+                // Find the minimum and maximum x and y coordinates
+                const minX = Math.min(...points.map(point => point[0]));
+                const minY = Math.min(...points.map(point => point[1]));
+                const maxX = Math.max(...points.map(point => point[0]));
+                const maxY = Math.max(...points.map(point => point[1]));
+
+                // Calculate the width and height of the bounding box
+                const width = maxX - minX;
+                const height = maxY - minY;
+
+                // Scale the coordinates
+                const scaledMinX = minX / scaleX;
+                const scaledMinY = minY / scaleY;
+                const scaledWidth = width / scaleX;
+                const scaledHeight = height / scaleY;
+
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(scaledMinX, scaledMinY, scaledWidth, scaledHeight);
+            },
+            highlightBox(code) {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                // from this.response.product_codes, filter the item with the code
+                // draw the bounding_poly with a different color
+                const selectedPoly = this.response.product_codes
+                    .filter(item => item.code === code)
+                this.drawPolygons(selectedPoly, 'rgba(255, 0, 0, 0.5)');
             }
         }
     }).mount('#scan')

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <title>Scan</title>
+    <style>
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        #preview {
+            display: none;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .code-button {
+            margin: 5px;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: auto;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #preview {
+            position: relative;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="scan" class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h1>Scan</h1>
+                <div class="form-group">
+                    <label for="image">Image</label>
+                    <input type="file" accept="image/*" class="form-control" id="image" name="image" @change="handleFileUpload">
+                </div>
+                <div class="form-group">
+                    <button v-if="isImageSelected" class="btn btn-warning" @click="restartImage">Restart Image</button>
+                    <button class="btn btn-success" @click="sendImage">Submit</button>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="canvas"></canvas>
+                    <img id="preview" src="" alt="Preview" class="img-fluid">
+                </div>
+                <div id="results"></div>
+            </div>
+        </div>
+        <div class="row">
+            <div id="code-buttons" class="col-md-12">
+                <button v-for="code in codeList" :key="code" class="code-button" @click="highlightBox(code)">
+                    [[ code ]]
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
+
+    <script>
+        const response = {
+            "product_codes": [
+                {
+                    "code": "697902",
+                    "bounding_poly": [
+                        [574, 1250],
+                        [766, 1256],
+                        [765, 1282],
+                        [573, 1276]
+                    ]
+                },
+
+            ]
+        };
+
+        const { createApp } = Vue;
+
+        createApp({
+            delimiters: ['[[', ']]'],
+            data() {
+                return {
+                    canvas: null,
+                    context: null,
+                    isImageSelected: false,
+                    capturedImage: null,
+                    response: [],
+                    codeList: [],
+                    imageWidth: 0,
+                    imageHeight: 0
+                }
+            },
+            methods: {
+                handleFileUpload(event) {
+                    const file = event.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.capturedImage = e.target.result;
+                        const img = new Image();
+                        img.onload = () => {
+                            console.log('Image Width:', img.width);
+                            console.log('Image Height:', img.height);
+
+                            document.getElementById('preview').src = this.capturedImage;
+                            document.getElementById('preview').style.display = 'block';
+                            this.isImageSelected = true;
+                        };
+                        img.src = this.capturedImage;
+                        this.imageWidth = img.width;
+                        this.imageHeight = img.height;
+                    };
+                    reader.readAsDataURL(file);
+
+                },
+                sendImage() {
+                    this.response = response;
+                    this.codeList = this.response.product_codes.map(item => item.code);
+                },
+                restartImage() {
+                    // Clear states
+                    this.isImageSelected = false;
+                    document.getElementById('preview').src = '';
+                    document.getElementById('preview').style.display = 'none';
+                    document.getElementById('results').innerHTML = '';
+                    this.capturedImage = null;
+                },
+                drawPolygon(points, color) {
+                    console.log('Drawing polygon with points:', points[0], points[1], points[2], points[3]);
+                    const previewImage = document.getElementById('preview');
+                    const canvas = document.getElementById('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = previewImage.width;
+                    canvas.height = previewImage.height;
+
+                    if (!ctx) {
+                        console.error('Failed to get canvas context');
+                        return;
+                    }
+
+                    const scaleX = canvas.width / preview.naturalWidth;
+                    const scaleY = canvas.height / preview.naturalHeight;
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.moveTo(points[0][0] * scaleX, points[0][1] * scaleY);
+                    points.slice(1).forEach(point => {
+                        ctx.lineTo(point[0] * scaleX, point[1] * scaleY);
+                    });
+                    ctx.closePath();
+                    ctx.fill();
+
+                },
+                highlightBox(code) {
+                    console.log('Highlighting box for code:', code);
+                    const canvas = document.getElementById('canvas');
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        console.error('Failed to get canvas context');
+                        return;
+                    }
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    const pointsArray = this.response.product_codes
+                        .filter(item => item.code === code)
+                        .map(item => item.bounding_poly);
+                    pointsArray.forEach(points => {
+                        this.drawPolygon(points, 'rgba(255, 0, 0, 0.5)');
+                    });
+                }
+            }
+        }).mount('#scan');
+    </script>
+</body>
+</html>
