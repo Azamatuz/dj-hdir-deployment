@@ -1,0 +1,394 @@
+{% extends "users/base.html" %}
+{% load static %}
+
+{% block title %}Scan{% endblock %}
+{% block styles %}
+    <style>
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        #preview {
+            display: none;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .code-button {
+            margin: 5px;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: auto;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #preview {
+            position: relative;
+            z-index: 0;
+        }
+
+        .checkbox-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+    {% endblock %}
+
+{% block content %}
+
+    <div id="scan" class="container pt-4">
+        <div class="accordion" id="accordionExample">
+                        <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" aria-expanded="false" aria-controls="collapseFour">
+                        Enter Bay Number
+                    </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#accordionExample">
+                    <div class="accordion-body">
+                        <div class="form-floating mb-3">
+                            <input type="text" class="form-control" id="floatingInput" placeholder="000">
+                            <label for="floatingInput">Bay Number</label>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="button" class="btn btn-outline-primary me-2" @click="nextAccordion('collapseOne', 'collapseTwo')">Skip</button>
+                            <button type="button" class="btn btn-primary" @click="nextAccordion('collapseOne', 'collapseTwo')">Next</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" aria-expanded="false" aria-controls="collapseFour">
+                        Select Empty Products Ids
+                    </button>
+                </h2>
+                <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
+                    <div class="accordion-body">
+                        <div class="input-group mb-3">
+                            <input v-model="newProductId" id="product-id-input" type="text" class="form-control" placeholder="Enter Product ID" aria-label="Enter Product ID" aria-describedby="button-addon">
+                            <button class="btn btn-outline-info" type="button" id="button-addon" @click="addSelectProduct">Add Product</button>
+                        </div>
+                        <div class="checkbox-container">
+                            <div v-for="product in bayProductList" :key="product" class="form-check form-check-inline">
+                                <input type="checkbox" :id="product" :value="product" v-model="selectedProducts" class="form-check-input">
+                                <label :for="product" class="form-check-label">[[ product ]]</label>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end mt-2">
+                            <button type="button" class="btn btn-outline-primary me-2" @click="nextAccordion('collapseTwo', 'collapseOne')">Back</button>
+                            <button type="button" class="btn btn-primary" @click="nextAccordion('collapseTwo', 'collapseThree')" :disabled="!isProductSelected">Next</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" aria-expanded="false" aria-controls="collapseFour">
+                        Scan Upper Shelf
+                    </button>
+                </h2>
+                <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
+                    <div class="accordion-body">
+                        <div id="image-div" style="display: none; position: relative; top: 0; left: 0; min-height: 500px; width: auto;">
+                            <video id="video" style="max-height: 100%; width: auto;" autoplay></video>
+                        </div>
+                        <button v-if="!isCameraOn" class="btn btn-primary" @click="startCamera">Start Camera</button>
+                        <button v-else class="btn btn-secondary" @click="captureImage">Capture Image</button>
+
+                        <div class="form-group mt-3">
+                            <input type="file" accept="image/*" class="form-control" id="image" name="image"
+                                @change="handleFileUpload">
+                        </div>
+                        <div class="d-flex justify-content-end mt-2">
+                            <button type="button" class="btn btn-outline-primary me-2" @click="nextAccordion('collapseThree', 'collapseTwo')">Back</button>
+                            <button type="button" class="btn btn-primary" @click="nextAccordion('collapseThree', 'collapseFour'); sendImage(false)" :disabled="!isProductSelected">Next</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" aria-expanded="false" aria-controls="collapseFour">
+                        See Result
+                    </button>
+                </h2>
+                <div id="collapseFour" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
+                    <div class="accordion-body" style="position: relative; min-height: 300px; width: 100%;">
+                        <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; height: auto; width: 100%;"></canvas>
+                        <img id="preview" :src="capturedImage" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; height: auto; width: 100%;">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="td-flex justify-content-end">
+            <button v-if="currentStep==='collapseFour'" type="button" class="btn btn-primary my-3 text-right" @click="restartFlow">Start Over</button>
+        </div>
+    </div>
+    {% endblock %}
+
+{% block script %}
+{{ block.super }}
+    <script>
+        const response = {
+            "product_codes": [{
+                    "code": "697902",
+                    "bounding_poly": [
+                        [574, 1250],
+                        [766, 1256],
+                        [765, 1282],
+                        [573, 1276]
+                    ]
+                },
+
+            ]
+        };
+        const bayProductList = {
+            "bay_number": "000",
+            "product_codes": ["697902", "123456", "234567"]
+        };
+
+        const {createApp} = Vue;
+
+        createApp({
+            delimiters: ['[[', ']]'],
+            data() {
+                return {
+                    canvas: null,
+                    video: null,
+                    context: null,
+                    isImageSelected: false,
+                    capturedImage: null,
+                    response: [],
+                    codeList: [],
+                    imageWidth: 0,
+                    imageHeight: 0,
+                    bayProductList: bayProductList.product_codes,
+                    selectedProducts: [],
+                    isCameraOn: false,
+                    newProductId: '',
+                    currentStep: 'collapseOne',
+                }
+            },
+             methods: {
+                cleanCodeList() {
+                    this.codeList = this.codeList.filter(code => /^\d{6,}$/.test(code));
+                },
+                restartFlow() {
+                    console.log('Restarting flow');
+                    this.restartImage();
+                    this.selectedProducts = [];
+                    this.newProductId = '';
+                    this.capturedImage = null;
+                    this.selectedProducts = [];
+                    this.codeList = [];
+                    this.response = [];
+                    this.nextAccordion('collapseFour', 'collapseOne');
+                },
+                addSelectProduct() {
+                    console.log('Adding product: ', this.newProductId);
+                    if (this.newProductId && !this.selectedProducts.includes(this.newProductId)) {
+                        this.selectedProducts.push(this.newProductId);
+                        this.bayProductList.push(this.newProductId);
+                        this.newProductId = '';
+                    }
+                },
+                setPreviewImage() {
+                    document.getElementById('preview').style.display = 'block';
+                    document.getElementById('canvas').style.display = 'block';
+                },
+                nextAccordion(current, next) {
+                    document.getElementById(current).classList.remove('show');
+                    document.getElementById(next).classList.add('show');
+                    this.currentStep = next;
+                    if (next === 'collapseThree') {
+                        //this.startCamera();
+                    }
+                    if (next === 'collapseFour') {
+                        this.setPreviewImage();
+                    }
+                },
+                captureImage() {
+                    this.context.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+                    const dataURL = this.canvas.toDataURL('image/png');
+                    document.getElementById('preview').src = dataURL;
+                    this.capturedImage = dataURL;
+                    // stop camera
+                    this.video.srcObject.getVideoTracks().forEach(track => track.stop());
+                    this.isCameraOn = false;
+                    this.isImageSelected = true;
+                    // hide video and canvas
+                    this.video.style.display = 'none';
+                    this.nextAccordion('collapseThree', 'collapseFour');
+                    this.sendImage();
+                },
+                startCamera() {
+                    const imageDiv = document.getElementById('image-div');
+                    imageDiv.style.display = 'block';
+                    this.video = document.getElementById('video');
+                    this.canvas = document.getElementById('canvas');
+                    this.context = this.canvas.getContext('2d');
+                    this.isCameraOn = true;
+                    this.isImageSelected = false;
+
+                    this.video.style.display = 'block';
+                    this.canvas.style.display = 'none';
+
+                    navigator.mediaDevices.getUserMedia({ video: true })
+                        .then(stream => {
+                            this.video.srcObject = stream;
+                            this.video.play();
+                        })
+                        .catch(err => {
+                            console.error("Error accessing the camera: ", err);
+                        });
+                },
+                addProduct(product) {
+                    if (!this.selectedProducts.includes(product)) {
+                        this.selectedProducts.push(product);
+                    }
+                },
+                handleFileUpload(event) {
+                    const file = event.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.capturedImage = e.target.result;
+                        const img = new Image();
+                        img.onload = () => {
+                            this.imageWidth = img.width;
+                            this.imageHeight = img.height;
+                            document.getElementById('preview').src = this.capturedImage;
+                            document.getElementById('preview').style.display = 'block';
+                            this.isImageSelected = true;
+                            this.setCanvasSize();
+                            this.nextAccordion('collapseThree', 'collapseFour');
+                            this.sendImage(true);
+                        };
+                        img.src = this.capturedImage;
+                    };
+                    reader.readAsDataURL(file);
+                },
+                setCanvasSize() {
+                    const previewImage = document.getElementById('preview');
+                    this.canvas = document.getElementById('canvas');
+                    this.canvas.width = previewImage.width;
+                    this.canvas.height = previewImage.height;
+                    this.ctx = this.canvas.getContext('2d');
+                },
+                sendImage(isUpload) {
+                    if (isUpload) {
+                        this.response = response;
+                        this.codeList = this.response.product_codes.map(item => item.code);
+                        this.checkSelectedProducts();
+                    }
+                    else {
+                        this.isLoading = true;
+                        fetch("{% url 'scan_image' %}", {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            },
+                            body: new URLSearchParams({
+                                'image': this.capturedImage
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.product_codes) {
+                                this.response = data;
+                                this.codeList = [...new Set(data.product_codes.map(item => item.code))]; // Update codeList
+                                this.cleanCodeList()
+                                this.isLoading = false;
+                            } else {
+                                document.getElementById('results').innerHTML = 'Error: ' + data.error;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                        });
+                    }
+                },
+                restartImage() {
+                    // Clear states
+                    this.isImageSelected = false;
+                    document.getElementById('preview').src = '';
+                    document.getElementById('preview').style.display = 'none';
+                    document.getElementById('canvas').style.display = 'none';
+                    this.canvas = null;
+                    this.ctx = null;
+                },
+                drawPolygons(points_list, color) {
+                    this.canvas.style.display = 'block'; // Ensure canvas is visible
+                    this.ctx.fillStyle = color;
+                    points_list.forEach(item => {
+                        this.drawPolygon(item.bounding_poly, color);
+                    });
+                },
+                drawPolygon(points, color) {
+                    const previewImage = document.getElementById('preview');
+                    this.canvas = document.getElementById('canvas');
+                    this.canvas.width = previewImage.width;
+                    this.canvas.height = previewImage.height;
+                    this.ctx = this.canvas.getContext('2d');
+                    // Calculate the scale factor
+                    const scaleX = previewImage.naturalWidth / document.getElementById('preview').offsetWidth
+                    const scaleY = previewImage.naturalHeight / document.getElementById('preview').offsetHeight
+                    console.log('Scale X: ', scaleX, 'Scale Y: ', scaleY);
+                    // Find the minimum and maximum x and y coordinates
+                    const minX = Math.min(...points.map(point => point[0]));
+                    const minY = Math.min(...points.map(point => point[1]));
+                    const maxX = Math.max(...points.map(point => point[0]));
+                    const maxY = Math.max(...points.map(point => point[1]));
+
+                    // Calculate the width and height of the bounding box
+                    const width = maxX - minX;
+                    const height = maxY - minY;
+
+                    // Scale the coordinates
+                    const scaledMinX = minX / scaleX;
+                    const scaledMinY = minY / scaleY;
+                    const scaledWidth = width / scaleX;
+                    const scaledHeight = height / scaleY;
+                    console.log(this.canvas.width, this.canvas.height);
+                    console.log(this.ctx);
+                    this.ctx.strokeStyle = color;
+                    this.ctx.lineWidth = 2;
+                    console.log('Drawing polygon: ', scaledMinX, scaledMinY, scaledWidth, scaledHeight);
+                    this.ctx.strokeRect(scaledMinX, scaledMinY, scaledWidth, scaledHeight);
+                },
+                highlightBox(code) {
+                    console.log('Highlighting box for code: ', code);
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    // from this.response.product_codes, filter the item with the code
+                    // draw the bounding_poly with a different color
+                    const selectedPoly = this.response.product_codes
+                        .filter(item => item.code === code)
+                    console.log('Selected Poly: ', selectedPoly);
+                    this.drawPolygons(selectedPoly, 'rgba(255, 0, 0, 0.5)');
+                },
+                checkSelectedProducts() {
+                    this.selectedProducts.forEach(product => {
+                        this.highlightBox(product);
+                    });
+                }
+            },
+            computed: {
+                isProductSelected() {
+                    return this.selectedProducts.length > 0;
+                }
+            },
+        }).mount('#scan');
+    </script>
+{% endblock %}

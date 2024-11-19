@@ -41,13 +41,9 @@
                 <button v-if="isImageSelected" class="btn btn-warning" @click="restartCamera">Restart Camera</button>
                 <button class="btn btn-success" @click="sendImage" :disabled="isLoading">
                     Submit
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16" :class="{ rotate: isLoading }">
-                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
-                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/>
-                    </svg>
                 </button>
             </div>
-            <div id="image-div" style="position: relative; top: 0; left: 0; min-height: 500px; width: auto;">
+            <div id="image-div" style="position: relative; top: 0; left: 0; min-height: 300px; width: auto;">
                 <video id="video" style="display: none; max-height: 100%; width: auto;" autoplay></video>
                 <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; max-height: 100%; width: auto;"></canvas>
                 <img id="preview" src="" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; max-height: 100%; width: auto;">
@@ -95,6 +91,7 @@
                 imageHeight: 0,
                 searchQuery: '',
                 isLoading: false,
+                countList: []
             }
         },
         computed: {
@@ -103,6 +100,18 @@
             }
         },
         methods: {
+            countProductCodes() {
+                console.log("Counting product codes");
+                this.response.product_codes.forEach(item => {
+                    const productCode = item.code;
+                    const countItem = this.countList.find(countItem => countItem.code === productCode);
+                    if (countItem) {
+                        countItem.count += 1;
+                    } else {
+                        this.countList.push({ code: productCode, count: 1 });
+                    }
+                });
+            },
             cleanCodeList() {
                 this.codeList = this.codeList.filter(code => /^\d{6,}$/.test(code));
             },
@@ -112,7 +121,6 @@
                 this.context = this.canvas.getContext('2d');
                 this.isCameraOn = true;
                 this.isImageSelected = false;
-
                 this.video.style.display = 'block';
                 this.canvas.style.display = 'none';
 
@@ -201,6 +209,7 @@
                         this.codeList = [...new Set(data.product_codes.map(item => item.code))]; // Update codeList
                         this.cleanCodeList()
                         this.isLoading = false;
+                        this.countProductCodes();
                     } else {
                         document.getElementById('results').innerHTML = 'Error: ' + data.error;
                     }
@@ -208,6 +217,7 @@
                 .catch(error => {
                     console.error('Error:', error);
                 });
+
             },
             clearCanvasPreview() {
                 this.isImageSelected = false;

@@ -12,25 +12,62 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 import os
 from pathlib import Path
+from google.cloud import secretmanager
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(BASE_DIR, 'vision', 'hdir-project-key.json')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-i!y&9ldvg#=f*@xgwyrm6$nbydcsg2sv*nlaag7j+jhe90x_mi'
+def get_secret(project_id, secret_id, version_id="latest"):
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+    response = client.access_secret_version(name=name)
+    return response.payload.data.decode("UTF-8")
+
+# Your Google Cloud project ID
+project_id = "172915823611"
+
+if os.getenv('DJANGO_DEVELOPMENT') == 'True':
+     # Use local JSON key file for development
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(BASE_DIR, 'vision', 'hdir-project-key.json')
+
+    # Read the secret key from the file locally
+    try:
+        with open(os.path.join(BASE_DIR, 'secret_key.txt')) as f:
+            SECRET_KEY = f.read().strip()
+    except FileNotFoundError:
+        raise Exception("Secret key file not found. Please create a 'secret_key.txt' file with your secret key.")
+
+else:
+    # Fetch the Django secret key from Google Secret Manager
+    django_secret_id = "dj-secret-key"
+    SECRET_KEY = get_secret(project_id, django_secret_id)
+
+    # Fetch the Google Vision API key JSON from Google Secret Manager
+    google_vision_secret_id = "google-vision-api"
+    google_vision_key_json = get_secret(project_id, google_vision_secret_id)
+
+    # Write the Google Vision API key JSON to a temporary file
+    temp_key_path = os.path.join(BASE_DIR, 'vision', 'hdir-project-key.json')
+    with open(temp_key_path, "w") as key_file:
+        key_file.write(google_vision_key_json)
+
+    # Set the environment variable for Google Vision API credentials
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_key_path
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEVELOPMENT') == 'True'
 
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
-    ]
-
+    'azamatuz.pythonanywhere.com'
+]
 
 # Application definition
 
@@ -75,6 +112,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+# Increase the maximum upload size to 5MB (for example)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -82,9 +121,10 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
+
 
 
 # Password validation
@@ -125,6 +165,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
