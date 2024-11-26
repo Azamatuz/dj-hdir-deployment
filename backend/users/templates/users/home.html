@@ -3,12 +3,16 @@
 <title>{% block title %}Home{% endblock %}</title>
 
 {% block content %}
-<div class="d-flex align-items-center py-4">
+<div class="d-flex align-items-center p-4">
     <main class="form-signin w-100 m-auto">
         <div class="w-100" style="max-width: 330px;">
             <h1 class="h3 mb-3 fw-normal">Welcome, {{ user.username }}!</h1>
             <p class="lead">This is your home page.</p>
+            <p class="lead">You can update your profile <a href="{% url 'profile' %}">here</a>.</p>
+            <p class="lead">Manage your inventory <a href="{% url 'scan_image' %}">here</a>.</p>
+            <p class="lead">Start downpacking <a href="{% url 'scan_flow' %}">here</a>.</p>
         </div>
+
     </main>
 </div>
 {% endblock %}
