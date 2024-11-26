@@ -13,6 +13,19 @@ from .models import *
 def Home(request):
     return render(request, 'users/home.html')
 
+@login_required
+def profile(request):
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        if email:
+            request.user.email = email
+            request.user.save()
+            messages.success(request, 'Email has been updated successfully.')
+            return redirect('profile')
+        else:
+            messages.error(request, 'Please enter a valid email address.')
+    return render(request, 'users/profile.html')
+
 def RegisterView(request):
 
     if request.method == "POST":
