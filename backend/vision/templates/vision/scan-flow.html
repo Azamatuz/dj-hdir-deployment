@@ -156,7 +156,7 @@
             <div class="accordion-item">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" aria-expanded="false" aria-controls="collapse-4">
-                        <span v-if="!currentStep==='collapse-4'" style="padding-bottom: 5px;margin-right: 10px;">
+                        <span v-if="currentStep !== 'collapse-4'" style="padding-bottom: 5px;margin-right: 10px;">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-4-circle" viewBox="0 0 16 16">
                                 <path d="M7.519 5.057q.33-.527.657-1.055h1.933v5.332h1.008v1.107H10.11V12H8.85v-1.559H4.978V9.322c.77-1.427 1.656-2.847 2.542-4.265ZM6.225 9.281v.053H8.85V5.063h-.065c-.867 1.33-1.787 2.806-2.56 4.218"/>
                                 <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8"/>
@@ -172,8 +172,8 @@
                 </h2>
                 <div id="collapse-4" class="accordion-collapse collapse" data-bs-parent="#accordionDiv">
                     <div class="accordion-body" style="position: relative; min-height: 300px; width: 100%;">
-                        <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; height: auto; width: 100%;"></canvas>
-                        <img id="preview" :src="capturedImage" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; height: auto; width: 100%;">
+                        <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; height: 100%; width: 100%;"></canvas>
+                        <img id="preview" :src="capturedImage" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; height: 100%; width: 100%; object-fit: contain; aspect-ratio: 16/9;">
                     </div>
                 </div>
             </div>
@@ -237,7 +237,6 @@
                     this.codeList = this.codeList.filter(code => /^\d{6,}$/.test(code));
                 },
                 restartFlow() {
-                    console.log('Restarting flow');
                     this.restartImage();
                     this.selectedProducts = [];
                     this.newProductId = '';
@@ -248,7 +247,6 @@
                     this.nextAccordion('collapse-4', 'collapse-1');
                 },
                 addSelectProduct() {
-                    console.log('Adding product: ', this.newProductId);
                     if (this.newProductId && !this.selectedProducts.includes(this.newProductId)) {
                         this.selectedProducts.push(this.newProductId);
                         this.bayProductList.push(this.newProductId);
@@ -271,6 +269,10 @@
                     }
                 },
                 captureImage() {
+                    console.log('Capturing image...', this.canvas.width, this.canvas.height);
+                    this.canvas.width = this.video.videoWidth;
+                    this.canvas.height = this.video.videoHeight;
+                    console.log('after image...', this.canvas.width, this.canvas.height);
                     this.context.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
                     const dataURL = this.canvas.toDataURL('image/png');
                     document.getElementById('preview').src = dataURL;
@@ -296,14 +298,22 @@
                     this.video.style.display = 'block';
                     this.canvas.style.display = 'none';
 
-                    navigator.mediaDevices.getUserMedia({ video: true })
-                        .then(stream => {
-                            this.video.srcObject = stream;
-                            this.video.play();
-                        })
-                        .catch(err => {
-                            console.error("Error accessing the camera: ", err);
-                        });
+                    navigator.mediaDevices.getUserMedia({
+                        video: {
+                            video: true,
+                            audio: false,
+                            facingMode: { exact: "environment" },
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 }
+                        }
+                    })
+                    .then(stream => {
+                        this.video.srcObject = stream;
+                        this.video.play();
+                    })
+                    .catch(err => {
+                        console.error("Error accessing the camera: ", err);
+                    });
                 },
                 addProduct(product) {
                     if (!this.selectedProducts.includes(product)) {
@@ -338,7 +348,6 @@
                     this.ctx = this.canvas.getContext('2d');
                 },
                 sendImage(isUpload) {
-                    console.log('Sending image', isUpload);
                     if (isUpload) {
                         this.response = response;
                         this.codeList = this.response.product_codes.map(item => item.code);
@@ -397,7 +406,6 @@
                     // Calculate the scale factor
                     const scaleX = previewImage.naturalWidth / document.getElementById('preview').offsetWidth
                     const scaleY = previewImage.naturalHeight / document.getElementById('preview').offsetHeight
-                    console.log('Scale X: ', scaleX, 'Scale Y: ', scaleY);
                     // Find the minimum and maximum x and y coordinates
                     const minX = Math.min(...points.map(point => point[0]));
                     const minY = Math.min(...points.map(point => point[1]));
@@ -413,21 +421,16 @@
                     const scaledMinY = minY / scaleY;
                     const scaledWidth = width / scaleX;
                     const scaledHeight = height / scaleY;
-                    console.log(this.canvas.width, this.canvas.height);
-                    console.log(this.ctx);
                     this.ctx.strokeStyle = color;
                     this.ctx.lineWidth = 2;
-                    console.log('Drawing polygon: ', scaledMinX, scaledMinY, scaledWidth, scaledHeight);
                     this.ctx.strokeRect(scaledMinX, scaledMinY, scaledWidth, scaledHeight);
                 },
                 highlightBox(code) {
-                    console.log('Highlighting box for code: ', code);
                     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     // from this.response.product_codes, filter the item with the code
                     // draw the bounding_poly with a different color
                     const selectedPoly = this.response.product_codes
                         .filter(item => item.code === code)
-                    console.log('Selected Poly: ', selectedPoly);
                     this.drawPolygons(selectedPoly, 'rgba(255, 0, 0, 0.5)');
                 },
                 checkSelectedProducts() {

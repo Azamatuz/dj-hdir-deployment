@@ -43,10 +43,10 @@
                     Submit
                 </button>
             </div>
-            <div id="image-div" style="position: relative; top: 0; left: 0; min-height: 300px; width: auto;">
+            <div id="image-div" style="position: relative; top: 0; left: 0; height: auto; width: 100%;">
                 <video id="video" style="display: none; max-height: 100%; width: auto;" autoplay></video>
-                <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; max-height: 100%; width: auto;"></canvas>
-                <img id="preview" src="" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; max-height: 100%; width: auto;">
+                <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; height: 100%; width: 100%;"></canvas>
+                <img id="preview" src="" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; height: 100%; width: 100%;">
             </div>
         </div>
     </div>
@@ -110,7 +110,6 @@
                 return item ? item.count : 0;
             },
             countProductCodes() {
-                console.log("Counting product codes");
                 this.response.product_codes.forEach(item => {
                     const productCode = item.code;
                     const countItem = this.countList.find(countItem => countItem.code === productCode);
@@ -135,7 +134,7 @@
                     video: {
                         video: true,
                         audio: false,
-                        facingMode: { exact: "environment" },
+                        //facingMode: { exact: "environment" },
 
                     }
                 })
@@ -190,6 +189,9 @@
                 this.ctx = canvas.getContext('2d');
                 const imageDiv = document.getElementById('image-div');
                 imageDiv.style.height = previewImage.height;
+                canvas.style.display = 'block';
+                previewImage.style.display = 'block';
+                imageDiv.style.display = 'block';
             },
             sendImage() {
                 // Fetch test response from response.json
