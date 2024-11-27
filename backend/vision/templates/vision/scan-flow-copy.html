@@ -8,8 +8,32 @@
             margin-bottom: 1rem;
         }
 
+        #preview {
+            display: none;
+            max-width: 100%;
+            height: auto;
+        }
+
         .code-button {
             margin: 5px;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: auto;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #preview {
+            position: relative;
+            z-index: 0;
         }
 
         .checkbox-container {
@@ -112,8 +136,8 @@
                 </h2>
                 <div id="collapse-3" class="accordion-collapse collapse" data-bs-parent="#accordionDiv">
                     <div class="accordion-body">
-                        <div id="video-div" style="position: relative; top: 0; left: 0;">
-                            <video id="video" style="display: none; height: 100%; width: 100%;" autoplay></video>
+                        <div id="image-div" style="display: none; position: relative; top: 0; left: 0; min-height: 500px; width: auto;">
+                            <video id="video" style="max-height: 100%; width: auto;" autoplay></video>
                         </div>
                         <button v-if="!isCameraOn" class="btn btn-primary" @click="startCamera">Start Camera</button>
                         <button v-else class="btn btn-secondary" @click="captureImage">Capture Image</button>
@@ -147,9 +171,9 @@
                     </button>
                 </h2>
                 <div id="collapse-4" class="accordion-collapse collapse" data-bs-parent="#accordionDiv">
-                    <div class="accordion-body" id="image-div" style="position: relative; top: 0; left: 0;">
-                        <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1;"></canvas>
-                        <img id="preview" :src="capturedImage" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; height: 100%; width: 100%;">
+                    <div class="accordion-body" style="position: relative; min-height: 300px; width: 100%;">
+                        <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; height: auto; width: 100%;"></canvas>
+                        <img id="preview" :src="capturedImage" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; height: auto; width: 100%; object-fit: contain; aspect-ratio: 16/9;">
                     </div>
                 </div>
             </div>
@@ -245,14 +269,14 @@
                     }
                 },
                 captureImage() {
+                    console.log('Capturing image...', this.canvas.width, this.canvas.height);
                     this.canvas.width = this.video.videoWidth;
                     this.canvas.height = this.video.videoHeight;
+                    console.log('after image...', this.canvas.width, this.canvas.height);
                     this.context.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
                     const dataURL = this.canvas.toDataURL('image/png');
                     document.getElementById('preview').src = dataURL;
                     this.capturedImage = dataURL;
-                    this.imageWidth = this.canvas.width
-                    this.imageHeight = this.canvas.height
                     // stop camera
                     this.video.srcObject.getVideoTracks().forEach(track => track.stop());
                     this.isCameraOn = false;
@@ -260,7 +284,6 @@
                     // hide video and canvas
                     this.video.style.display = 'none';
                     this.nextAccordion('collapse-3', 'collapse-4');
-                    this.setCanvasSize();
                     this.sendImage();
                 },
                 startCamera() {
@@ -306,7 +329,6 @@
                             this.isImageSelected = true;
                             this.setCanvasSize();
                             this.nextAccordion('collapse-3', 'collapse-4');
-                            this.setCanvasSize();
                             this.sendImage(true);
                         };
                         img.src = this.capturedImage;
@@ -315,13 +337,10 @@
                 },
                 setCanvasSize() {
                     const previewImage = document.getElementById('preview');
-                    const ratio = this.imageWidth / previewImage.width
-                    const canvas = document.getElementById('canvas');
-                    canvas.width = previewImage.width;
-                    canvas.height = this.imageHeight / ratio;
-                    const ctx = canvas.getContext('2d');
-                    const imageDiv = document.getElementById('image-div');
-                    imageDiv.style.height = canvas.height + 'px';
+                    this.canvas = document.getElementById('canvas');
+                    this.canvas.width = previewImage.width;
+                    this.canvas.height = previewImage.height;
+                    this.ctx = this.canvas.getContext('2d');
                 },
                 sendImage(isUpload) {
                     if (isUpload) {
@@ -372,19 +391,21 @@
                     const previewImage = document.getElementById('preview');
                     canvas.width = previewImage.width;
                     canvas.height = previewImage.height;
-                    canvas.style.display = 'block'; // Ensure canvas is visible
-                    ctx.fillStyle = color;
+                    this.canvas.style.display = 'block'; // Ensure canvas is visible
+                    this.ctx.fillStyle = color;
                     points_list.forEach(item => {
                         this.drawPolygon(item.bounding_poly, color);
                     });
                 },
                 drawPolygon(points, color) {
-                    // Calculate the scale factor
                     const previewImage = document.getElementById('preview');
-                    const canvas = document.getElementById('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const scaleX = previewImage.naturalWidth / canvas.width;
-                    const scaleY = previewImage.naturalHeight / canvas.height;
+                    this.canvas = document.getElementById('canvas');
+                    this.canvas.width = previewImage.width;
+                    this.canvas.height = previewImage.height;
+                    this.ctx = this.canvas.getContext('2d');
+                    // Calculate the scale factor
+                    const scaleX = previewImage.naturalWidth / document.getElementById('preview').offsetWidth
+                    const scaleY = previewImage.naturalHeight / document.getElementById('preview').offsetHeight
                     // Find the minimum and maximum x and y coordinates
                     const minX = Math.min(...points.map(point => point[0]));
                     const minY = Math.min(...points.map(point => point[1]));
@@ -400,14 +421,12 @@
                     const scaledMinY = minY / scaleY;
                     const scaledWidth = width / scaleX;
                     const scaledHeight = height / scaleY;
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(scaledMinX, scaledMinY, scaledWidth, scaledHeight);
+                    this.ctx.strokeStyle = color;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(scaledMinX, scaledMinY, scaledWidth, scaledHeight);
                 },
                 highlightBox(code) {
-                    const canvas = document.getElementById('canvas');
-                    const ctx = canvas.getContext('2d');
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     // from this.response.product_codes, filter the item with the code
                     // draw the bounding_poly with a different color
                     const selectedPoly = this.response.product_codes

@@ -43,10 +43,10 @@
                     Submit
                 </button>
             </div>
-            <div id="image-div" style="position: relative; top: 0; left: 0; height: auto; width: 100%;">
+            <div id="image-div" style="position: relative; top: 0; left: 0; min-height: 300px; width: 100%;">
                 <video id="video" style="display: none; max-height: 100%; width: auto;" autoplay></video>
-                <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; height: 100%; width: 100%;"></canvas>
-                <img id="preview" src="" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; height: 100%; width: 100%;">
+                <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; height: auto; width: 100%;"></canvas>
+                <img id="preview" src="" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; max-height: auto; width: 100%%;">
             </div>
         </div>
     </div>
@@ -96,7 +96,9 @@
                 imageHeight: 0,
                 searchQuery: '',
                 isLoading: false,
-                countList: []
+                countList: [],
+                deviceType: 'mobile'
+
             }
         },
         computed: {
@@ -134,8 +136,9 @@
                     video: {
                         video: true,
                         audio: false,
-                        //facingMode: { exact: "environment" },
-
+                        facingMode: { exact: "environment" },
+                        width: { ideal: 1080 },
+                        height: { ideal: 1920 }
                     }
                 })
                 .then(stream => {
@@ -147,14 +150,14 @@
                 });
             },
             captureImage() {
-                console.log('Capturing image...', this.canvas.width, this.canvas.height);
                 this.canvas.width = this.video.videoWidth;
                 this.canvas.height = this.video.videoHeight;
-                console.log('after image...', this.canvas.width, this.canvas.height);
                 this.context.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
                 const dataURL = this.canvas.toDataURL('image/png');
                 document.getElementById('preview').src = dataURL;
                 this.capturedImage = dataURL;
+                this.imageWidth = this.canvas.width
+                this.imageHeight = this.canvas.height
                 // stop camera
                 this.video.srcObject.getVideoTracks().forEach(track => track.stop());
                 this.isCameraOn = false;
@@ -164,6 +167,7 @@
                 this.setCanvasSize();
             },
             handleFileUpload(event) {
+                this.deviceType = 'desktop';
                 const file = event.target.files[0];
                 const reader = new FileReader();
                 reader.onload = (e) => {
@@ -189,9 +193,6 @@
                 this.ctx = canvas.getContext('2d');
                 const imageDiv = document.getElementById('image-div');
                 imageDiv.style.height = previewImage.height;
-                canvas.style.display = 'block';
-                previewImage.style.display = 'block';
-                imageDiv.style.display = 'block';
             },
             sendImage() {
                 // Fetch test response from response.json
@@ -242,20 +243,17 @@
             clearCanvasPreview() {
                 this.isImageSelected = false;
                 document.getElementById('preview').src = '';
-                document.getElementById('results').innerHTML = '';
                 this.capturedImage = null;
             },
             restartCamera() {
-                // Clear states
-                if (this.video && this.video.srcObject) {
-                    this.video.srcObject.getVideoTracks().forEach(track => track.stop());
-                }
-                this.isCameraOn = false;
-                this.clearCanvasPreview();
-                // Restart camera
-                this.startCamera();
+                location.reload();
             },
             drawPolygons(points_list, color) {
+                const canvas = document.getElementById('canvas');
+                const ctx = canvas.getContext('2d');
+                const previewImage = document.getElementById('preview');
+                canvas.width = previewImage.width;
+                canvas.height = previewImage.height;
                 this.canvas.style.display = 'block'; // Ensure canvas is visible
                 this.ctx.fillStyle = color;
                 points_list.forEach(item => {
@@ -263,7 +261,6 @@
                 });
             },
             drawPolygon(points, color) {
-
                 const previewImage = document.getElementById('preview');
                 const scaleX = previewImage.naturalWidth / this.canvas.width;
                 const scaleY = previewImage.naturalHeight / this.canvas.height;

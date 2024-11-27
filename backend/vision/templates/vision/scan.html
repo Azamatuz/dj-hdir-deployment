@@ -43,10 +43,10 @@
                     Submit
                 </button>
             </div>
-            <div id="image-div" style="position: relative; top: 0; left: 0; min-height: 300px; width: auto;">
-                <video id="video" style="display: none; max-height: 100%; width: auto;" autoplay></video>
-                <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1; max-height: 100%; width: auto;"></canvas>
-                <img id="preview" src="" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; max-height: 100%; width: auto;">
+            <div id="image-div" style="position: relative; top: 0; left: 0;">
+                <video id="video" style="display: none; height: 100%; width: 100%;" autoplay></video>
+                <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1;"></canvas>
+                <img id="preview" src="" alt="Preview" class="img-fluid" style="position: absolute; top: 0; left: 0; z-index: 0; height: 100%; width: 100%;">
             </div>
         </div>
     </div>
@@ -96,7 +96,9 @@
                 imageHeight: 0,
                 searchQuery: '',
                 isLoading: false,
-                countList: []
+                countList: [],
+                deviceType: 'mobile'
+
             }
         },
         computed: {
@@ -110,7 +112,6 @@
                 return item ? item.count : 0;
             },
             countProductCodes() {
-                console.log("Counting product codes");
                 this.response.product_codes.forEach(item => {
                     const productCode = item.code;
                     const countItem = this.countList.find(countItem => countItem.code === productCode);
@@ -135,8 +136,9 @@
                     video: {
                         video: true,
                         audio: false,
-                        facingMode: { exact: "environment" },
-
+                        //facingMode: { exact: "environment" },
+                        width: { ideal: 1080 },
+                        height: { ideal: 1920 }
                     }
                 })
                 .then(stream => {
@@ -148,14 +150,14 @@
                 });
             },
             captureImage() {
-                console.log('Capturing image...', this.canvas.width, this.canvas.height);
                 this.canvas.width = this.video.videoWidth;
                 this.canvas.height = this.video.videoHeight;
-                console.log('after image...', this.canvas.width, this.canvas.height);
                 this.context.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
                 const dataURL = this.canvas.toDataURL('image/png');
                 document.getElementById('preview').src = dataURL;
                 this.capturedImage = dataURL;
+                this.imageWidth = this.canvas.width
+                this.imageHeight = this.canvas.height
                 // stop camera
                 this.video.srcObject.getVideoTracks().forEach(track => track.stop());
                 this.isCameraOn = false;
@@ -165,6 +167,7 @@
                 this.setCanvasSize();
             },
             handleFileUpload(event) {
+                this.deviceType = 'desktop';
                 const file = event.target.files[0];
                 const reader = new FileReader();
                 reader.onload = (e) => {
@@ -184,12 +187,13 @@
             },
             setCanvasSize() {
                 const previewImage = document.getElementById('preview');
-                this.canvas = document.getElementById('canvas');
+                const ratio = this.imageWidth / previewImage.width
+                const canvas = document.getElementById('canvas');
                 canvas.width = previewImage.width;
-                canvas.height = previewImage.height;
-                this.ctx = canvas.getContext('2d');
+                canvas.height = this.imageHeight / ratio;
+                const ctx = canvas.getContext('2d');
                 const imageDiv = document.getElementById('image-div');
-                imageDiv.style.height = previewImage.height;
+                imageDiv.style.height = canvas.height + 'px';
             },
             sendImage() {
                 // Fetch test response from response.json
@@ -240,31 +244,29 @@
             clearCanvasPreview() {
                 this.isImageSelected = false;
                 document.getElementById('preview').src = '';
-                document.getElementById('results').innerHTML = '';
                 this.capturedImage = null;
             },
             restartCamera() {
-                // Clear states
-                if (this.video && this.video.srcObject) {
-                    this.video.srcObject.getVideoTracks().forEach(track => track.stop());
-                }
-                this.isCameraOn = false;
-                this.clearCanvasPreview();
-                // Restart camera
-                this.startCamera();
+                location.reload();
             },
             drawPolygons(points_list, color) {
-                this.canvas.style.display = 'block'; // Ensure canvas is visible
-                this.ctx.fillStyle = color;
+                const canvas = document.getElementById('canvas');
+                const ctx = canvas.getContext('2d');
+                const previewImage = document.getElementById('preview');
+                canvas.width = previewImage.width;
+                canvas.height = previewImage.height;
+                canvas.style.display = 'block'; // Ensure canvas is visible
+                ctx.fillStyle = color;
                 points_list.forEach(item => {
                     this.drawPolygon(item.bounding_poly, color);
                 });
             },
             drawPolygon(points, color) {
-
                 const previewImage = document.getElementById('preview');
-                const scaleX = previewImage.naturalWidth / this.canvas.width;
-                const scaleY = previewImage.naturalHeight / this.canvas.height;
+                const canvas = document.getElementById('canvas');
+                const ctx = canvas.getContext('2d');
+                const scaleX = previewImage.naturalWidth / canvas.width;
+                const scaleY = previewImage.naturalHeight / canvas.height;
 
                 // Find the minimum and maximum x and y coordinates
                 const minX = Math.min(...points.map(point => point[0]));
@@ -282,12 +284,14 @@
                 const scaledWidth = width / scaleX;
                 const scaledHeight = height / scaleY;
 
-                this.ctx.strokeStyle = color;
-                this.ctx.lineWidth = 2;
-                this.ctx.strokeRect(scaledMinX, scaledMinY, scaledWidth, scaledHeight);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(scaledMinX, scaledMinY, scaledWidth, scaledHeight);
             },
             highlightBox(code) {
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                const canvas = document.getElementById('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 // from this.response.product_codes, filter the item with the code
                 // draw the bounding_poly with a different color
                 const selectedPoly = this.response.product_codes
