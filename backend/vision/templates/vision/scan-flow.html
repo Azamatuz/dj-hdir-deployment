@@ -275,8 +275,8 @@
                             video: true,
                             audio: false,
                             // facingMode: { exact: "environment" },
-                            width: { ideal: 1080 },
-                            height: { ideal: 1920 }
+                            width: { ideal: 540 },
+                            height: { ideal: 860 }
                         }
                     })
                     .then(stream => {
@@ -348,6 +348,7 @@
                                 this.codeList = [...new Set(data.product_codes.map(item => item.code))]; // Update codeList
                                 this.cleanCodeList()
                                 this.isLoading = false;
+                                this.checkSelectedProducts();
                             } else {
                                 document.getElementById('results').innerHTML = 'Error: ' + data.error;
                             }
